@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Debate Judge App</title>
+  <style>
+    body {
+      font-family: Arial;
+      text-align: center;
+      padding: 20px;
+      background-color: #121212;
+      color: white;
+    }
+    #chooseResult, #debate, #verdict {
+      display: none;
+    }
+    .turn {
+      font-weight: bold;
+      font-size: 18px;
+    }
+    input, textarea, button {
+      color: white;
+      background-color: #333;
+      border: 1px solid #666;
+      border-radius: 5px;
+      padding: 10px;
+      margin: 5px;
+    }
+    textarea {
+      width: 80%;
+      height: 80px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>AI Debate Judge</h1>
+
+  <div id="setup">
+    <input type="text" id="name1" placeholder="Debater 1 Name" /><br /><br />
+    <input type="text" id="name2" placeholder="Debater 2 Name" /><br /><br />
+    <input type="text" id="topic" placeholder="Debate Topic" /><br /><br />
+    <button onclick="chooseFirst()">Choose</button>
+  </div>
+
+  <div id="chooseResult">
+    <h2 id="chosenOne"></h2>
+    <button onclick="startDebate()">Start Debate</button>
+  </div>
+
+  <div id="debate">
+    <h2 id="roundTitle"></h2>
+    <p class="turn" id="turnText"></p>
+    <textarea id="argumentBox" placeholder="Type your argument here..."></textarea><br />
+    <button onclick="startRecording()">🎙️ Record</button>
+    <button onclick="nextTurn()">Next Turn</button>
+    <p id="timer" style="font-weight:bold; font-size:16px; margin-top:10px;"></p>
+  </div>
+
+  <div id="verdict">
+    <h2>Judge's Verdict</h2>
+    <p id="verdictText"></p>
+    <button onclick="resetDebate()">New Debate</button>
+  </div>
+
+  <script>
+    let names = [];
+    let topic = "";
+    let currentRound = 1;
+    let turn = 0;
+    let debateLog = [[], []];
+    let totalTurns = 0;
+    let recognition;
+    let timerInterval;
+    let timeLeft = 30;
+
+    function chooseFirst() {
+      const n1 = document.getElementById("name1").value.trim();
+      const n2 = document.getElementById("name2").value.trim();
+      topic = document.getElementById("topic").value.trim();
+
+      if (!n1 || !n2 || !topic) {
+        alert("Please fill in all fields");
+        return;
+      }
+
+      names = [n1, n2];
+      const chosen = Math.random() < 0.5 ? n1 : n2;
+      if (names[0] !== chosen) names.reverse();
+
+      document.getElementById("setup").style.display = "none";
+      document.getElementById("chooseResult").style.display = "block";
+      document.getElementById("chosenOne").innerText = `${chosen} goes first!`;
+    }
+
+    function startDebate() {
+      document.getElementById("chooseResult").style.display = "none";
+      document.getElementById("debate").style.display = "block";
+      currentRound = 1;
+      turn = 0;
+      totalTurns = 0;
+      debateLog = [[], []];
+      timeLeft = 30;
+      updateTurn();
+      startTimer();
+    }
+
+    function nextTurn() {
+      const text = document.getElementById("argumentBox").value.trim();
+      if (!text) {
+        alert("Please enter your argument.");
+        return;
+      }
+      debateLog[turn].push(text);
+      document.getElementById("argumentBox").value = "";
+      totalTurns++;
+      stopTimer();
+
+      if (totalTurns >= 6) {
+        document.getElementById("debate").style.display = "none";
+        showVerdict();
+        return;
+      }
+
+      turn = (turn + 1) % 2;
+      if (totalTurns % 2 === 0) currentRound++;
+      updateTurn();
+      timeLeft = 30;
+      startTimer();
+    }
+
+    function updateTurn() {
+      const roundTitles = [
+        "Opening Statements",
+        "Rebuttals",
+        "Final Remarks",
+      ];
+      document.getElementById("roundTitle").innerText = `Round ${currentRound}: ${roundTitles[currentRound - 1]}`;
+      document.getElementById("turnText").innerText = `🎤 ${roundTitles[currentRound - 1]} – ${names[turn]}`;
+    }
+
+    function showVerdict() {
+      document.getElementById("verdict").style.display = "block";
+      const len1 = debateLog[0].join(" ").length;
+      const len2 = debateLog[1].join(" ").length;
+      let winner = len1 > len2 ? names[0] : names[1];
+      if (len1 === len2) winner = "It's a Tie!";
+
+      document.getElementById("verdictText").innerText = `After reviewing the arguments, the judge declares: ${winner} wins the debate on '${topic}'.\n\nThank you both for participating!`;
+    }
+
+    function resetDebate() {
+      document.getElementById("setup").style.display = "block";
+      document.getElementById("chooseResult").style.display = "none";
+      document.getElementById("debate").style.display = "none";
+      document.getElementById("verdict").style.display = "none";
+      document.getElementById("name1").value = "";
+      document.getElementById("name2").value = "";
+      document.getElementById("topic").value = "";
+      document.getElementById("argumentBox").value = "";
+      document.getElementById("chosenOne").innerHTML = "";
+      document.getElementById("timer").innerText = "";
+      names = [];
+      topic = "";
+      currentRound = 1;
+      turn = 0;
+      totalTurns = 0;
+      debateLog = [[], []];
+      stopTimer();
+    }
+
+    function startRecording() {
+      if (!("webkitSpeechRecognition" in window)) {
+        alert("Speech Recognition not supported on this browser.");
+        return;
+      }
+
+      recognition = new webkitSpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = "en-US";
+
+      recognition.start();
+      recognition.onresult = function (event) {
+        const speechResult = event.results[0][0].transcript;
+        document.getElementById("argumentBox").value = speechResult;
+      };
+
+      recognition.onerror = function (event) {
+        alert("Speech recognition error: " + event.error);
+      };
+    }
+
+    function startTimer() {
+      document.getElementById("timer").innerText = `Time left: ${timeLeft} sec`;
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        if (timeLeft <= 0) {
+          clearInterval(timerInterval);
+          alert("Time's up! Moving to next turn.");
+          nextTurn();
+        } else {
+          document.getElementById("timer").innerText = `Time left: ${timeLeft} sec`;
+        }
+      }, 1000);
+    }
+
+    function stopTimer() {
+      clearInterval(timerInterval);
+    }
+  </script>
+</body>
+</html>
