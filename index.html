@@ -73,7 +73,7 @@
     let totalTurns = 0;
     let recognition;
     let timerInterval;
-    let timeLeft = 30;
+    let timeLeft = 60; // 60 seconds per turn
 
     function chooseFirst() {
       const n1 = document.getElementById("name1").value.trim();
@@ -101,7 +101,7 @@
       turn = 0;
       totalTurns = 0;
       debateLog = [[], []];
-      timeLeft = 30;
+      timeLeft = 60;
       updateTurn();
       startTimer();
     }
@@ -109,7 +109,7 @@
     function nextTurn() {
       const text = document.getElementById("argumentBox").value.trim();
       if (!text) {
-        alert("Please enter your argument.");
+        alert("Please enter your argument before moving on.");
         return;
       }
       debateLog[turn].push(text);
@@ -126,7 +126,7 @@
       turn = (turn + 1) % 2;
       if (totalTurns % 2 === 0) currentRound++;
       updateTurn();
-      timeLeft = 30;
+      timeLeft = 60;
       startTimer();
     }
 
@@ -198,8 +198,8 @@
         timeLeft--;
         if (timeLeft <= 0) {
           clearInterval(timerInterval);
-          alert("Time's up! Moving to next turn.");
-          nextTurn();
+          alert(`Time's up! No argument given. ${names[(turn + 1) % 2]} wins the debate!`);
+          showForcedWin((turn + 1) % 2);
         } else {
           document.getElementById("timer").innerText = `Time left: ${timeLeft} sec`;
         }
@@ -209,6 +209,14 @@
     function stopTimer() {
       clearInterval(timerInterval);
     }
+
+    function showForcedWin(winnerIndex) {
+      document.getElementById("debate").style.display = "none";
+      document.getElementById("verdict").style.display = "block";
+      document.getElementById("verdictText").innerText = 
+        `${names[winnerIndex]} wins the debate because the other side ran out of time!`;
+    }
   </script>
 </body>
 </html>
+
