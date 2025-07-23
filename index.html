@@ -3,10 +3,12 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Debate Judge App with Certificates</title>
+<title>Debate Judge App with Cool Certificates</title>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Roboto&display=swap');
+
   body {
-    font-family: Arial;
+    font-family: 'Roboto', Arial, sans-serif;
     text-align: center;
     padding: 20px;
     background-color: #121212;
@@ -26,38 +28,12 @@
     border-radius: 5px;
     padding: 10px;
     margin: 5px;
+    font-size: 16px;
   }
   textarea {
     width: 80%;
     height: 80px;
     margin-top: 10px;
-  }
-  .certificate {
-    margin: 15px auto;
-    padding: 20px;
-    width: 400px;
-    border: 3px solid white;
-    border-radius: 10px;
-    background-size: cover;
-    background-position: center;
-    color: black;
-    position: relative;
-    color: #222;
-    background-color: white;
-  }
-  .cert-title {
-    font-size: 22px;
-    font-weight: bold;
-    margin-bottom: 10px;
-  }
-  .cert-name {
-    font-size: 28px;
-    font-weight: bold;
-    margin: 15px 0;
-  }
-  .cert-status {
-    font-size: 18px;
-    margin: 10px 0;
   }
   #certificates {
     margin-top: 30px;
@@ -69,9 +45,102 @@
   input[type="text"].bg-url {
     width: 300px;
   }
+  /* Certificate styles */
+  .certificate {
+    position: relative;
+    margin: 20px auto;
+    padding: 30px 40px 40px;
+    width: 420px;
+    border: 8px solid #FFD700;
+    border-radius: 20px;
+    background-color: white;
+    color: #222;
+    font-family: 'Playfair Display', serif;
+    box-shadow: 0 0 30px 6px rgba(255, 215, 0, 0.7);
+    opacity: 0;
+    animation: fadeInUp 1s forwards;
+  }
+  @keyframes fadeInUp {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    from {
+      opacity: 0;
+      transform: translateY(40px);
+    }
+  }
+  .cert-title {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 15px;
+    letter-spacing: 1.5px;
+    color: #b8860b;
+    text-shadow: 1px 1px 2px #555;
+  }
+  .cert-name {
+    font-size: 36px;
+    font-weight: 900;
+    margin: 25px 0 10px;
+    letter-spacing: 1.2px;
+    color: #444;
+  }
+  .cert-status {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 10px 0;
+    color: #b8860b;
+    position: relative;
+  }
+  .cert-subtitle {
+    margin-top: 15px;
+    font-style: italic;
+    font-size: 18px;
+    color: #555;
+  }
+
+  /* Ribbon banner */
+  .ribbon {
+    position: absolute;
+    top: -12px;
+    right: -12px;
+    background: #b8860b;
+    color: white;
+    padding: 8px 25px;
+    font-weight: 700;
+    font-family: 'Roboto', sans-serif;
+    font-size: 16px;
+    border-radius: 0 0 0 10px;
+    box-shadow: 0 0 8px #b8860b;
+    user-select: none;
+  }
+
+  /* Gold star icon */
+  .gold-star {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    width: 48px;
+    height: 48px;
+    filter: drop-shadow(0 0 2px #b8860b);
+  }
+
+  /* Confetti container */
+  #confetti-container {
+    pointer-events: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    z-index: 9999;
+  }
+
 </style>
 </head>
 <body>
+
   <h1>AI Debate Judge</h1>
 
   <div id="setup">
@@ -107,6 +176,8 @@
     <input type="text" id="bgImageUrl" class="bg-url" placeholder="Paste image URL here" />
     <div id="certContainer"></div>
   </div>
+
+  <div id="confetti-container"></div>
 
 <script>
   let names = [];
@@ -221,6 +292,7 @@
     debateLog = [[], []];
     winnerIndex = null;
     stopTimer();
+    clearConfetti();
   }
 
   function startRecording() {
@@ -301,6 +373,8 @@
 
     certContainer.appendChild(winnerCert);
     certContainer.appendChild(loserCert);
+
+    launchConfetti();
   }
 
   function createCertificate(name, status, subtitle, bgUrl) {
@@ -308,9 +382,27 @@
     cert.className = "certificate";
     if(bgUrl) {
       cert.style.backgroundImage = `url(${bgUrl})`;
+      cert.style.backgroundSize = "cover";
+      cert.style.backgroundPosition = "center";
       cert.style.color = "white"; // White text on background
       cert.style.borderColor = "white";
-      cert.style.textShadow = "2px 2px 4px black";
+      cert.style.textShadow = "2px 2px 6px black";
+      cert.style.boxShadow = "0 0 30px 6px rgba(255, 255, 255, 0.7)";
+    }
+
+    // Ribbon banner
+    const ribbon = document.createElement("div");
+    ribbon.className = "ribbon";
+    ribbon.textContent = status === "Winner" ? "WINNER" : "PARTICIPANT";
+    cert.appendChild(ribbon);
+
+    // Gold star for winner
+    if(status === "Winner") {
+      const star = document.createElement("img");
+      star.className = "gold-star";
+      star.src = "https://upload.wikimedia.org/wikipedia/commons/1/18/Five-pointed_star.svg";
+      star.alt = "Gold Star";
+      cert.appendChild(star);
     }
 
     const title = document.createElement("div");
@@ -326,8 +418,7 @@
     certStatus.textContent = status;
 
     const certSubtitle = document.createElement("div");
-    certSubtitle.style.marginTop = "10px";
-    certSubtitle.style.fontStyle = "italic";
+    certSubtitle.className = "cert-subtitle";
     certSubtitle.textContent = subtitle;
 
     cert.appendChild(title);
@@ -337,6 +428,43 @@
 
     return cert;
   }
+
+  // Simple confetti effect using canvas
+  function launchConfetti() {
+    const container = document.getElementById('confetti-container');
+    container.innerHTML = "";
+    const confettiCount = 100;
+    for(let i=0; i<confettiCount; i++) {
+      const confetti = document.createElement('div');
+      confetti.style.position = 'absolute';
+      confetti.style.width = '8px';
+      confetti.style.height = '8px';
+      confetti.style.backgroundColor = `hsl(${Math.random()*360}, 70%, 60%)`;
+      confetti.style.left = `${Math.random() * window.innerWidth}px`;
+      confetti.style.top = `${Math.random() * window.innerHeight}px`;
+      confetti.style.opacity = '0.9';
+      confetti.style.borderRadius = '50%';
+      confetti.style.animation = `confetti-fall ${3 + Math.random()*3}s linear forwards`;
+      confetti.style.animationDelay = `${Math.random()*3}s`;
+      container.appendChild(confetti);
+    }
+    setTimeout(clearConfetti, 8000);
+  }
+
+  function clearConfetti() {
+    document.getElementById('confetti-container').innerHTML = "";
+  }
+
 </script>
+
+<style>
+  @keyframes confetti-fall {
+    0% {transform: translateY(0) rotate(0deg);}
+    100% {transform: translateY(800px) rotate(360deg); opacity: 0;}
+  }
+</style>
+
+<div id="confetti-container"></div>
+
 </body>
 </html>
