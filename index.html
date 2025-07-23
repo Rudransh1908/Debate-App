@@ -1,38 +1,75 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Debate Judge App</title>
-  <style>
-    body {
-      font-family: Arial;
-      text-align: center;
-      padding: 20px;
-      background-color: #121212;
-      color: white;
-    }
-    #chooseResult, #debate, #verdict {
-      display: none;
-    }
-    .turn {
-      font-weight: bold;
-      font-size: 18px;
-    }
-    input, textarea, button {
-      color: white;
-      background-color: #333;
-      border: 1px solid #666;
-      border-radius: 5px;
-      padding: 10px;
-      margin: 5px;
-    }
-    textarea {
-      width: 80%;
-      height: 80px;
-      margin-top: 10px;
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Debate Judge App with Certificates</title>
+<style>
+  body {
+    font-family: Arial;
+    text-align: center;
+    padding: 20px;
+    background-color: #121212;
+    color: white;
+  }
+  #chooseResult, #debate, #verdict, #certificates {
+    display: none;
+  }
+  .turn {
+    font-weight: bold;
+    font-size: 18px;
+  }
+  input, textarea, button {
+    color: white;
+    background-color: #333;
+    border: 1px solid #666;
+    border-radius: 5px;
+    padding: 10px;
+    margin: 5px;
+  }
+  textarea {
+    width: 80%;
+    height: 80px;
+    margin-top: 10px;
+  }
+  .certificate {
+    margin: 15px auto;
+    padding: 20px;
+    width: 400px;
+    border: 3px solid white;
+    border-radius: 10px;
+    background-size: cover;
+    background-position: center;
+    color: black;
+    position: relative;
+    color: #222;
+    background-color: white;
+  }
+  .cert-title {
+    font-size: 22px;
+    font-weight: bold;
+    margin-bottom: 10px;
+  }
+  .cert-name {
+    font-size: 28px;
+    font-weight: bold;
+    margin: 15px 0;
+  }
+  .cert-status {
+    font-size: 18px;
+    margin: 10px 0;
+  }
+  #certificates {
+    margin-top: 30px;
+  }
+  label {
+    display: block;
+    margin: 10px auto 5px;
+  }
+  input[type="text"].bg-url {
+    width: 300px;
+  }
+</style>
 </head>
 <body>
   <h1>AI Debate Judge</h1>
@@ -61,162 +98,245 @@
   <div id="verdict">
     <h2>Judge's Verdict</h2>
     <p id="verdictText"></p>
+    <button onclick="makeCertificates()">Make Certificate</button><br><br>
     <button onclick="resetDebate()">New Debate</button>
   </div>
 
-  <script>
-    let names = [];
-    let topic = "";
-    let currentRound = 1;
-    let turn = 0;
-    let debateLog = [[], []];
-    let totalTurns = 0;
-    let recognition;
-    let timerInterval;
-    let timeLeft = 60; // 60 seconds per turn
+  <div id="certificates">
+    <label for="bgImageUrl">Certificate Background Image URL (optional):</label>
+    <input type="text" id="bgImageUrl" class="bg-url" placeholder="Paste image URL here" />
+    <div id="certContainer"></div>
+  </div>
 
-    function chooseFirst() {
-      const n1 = document.getElementById("name1").value.trim();
-      const n2 = document.getElementById("name2").value.trim();
-      topic = document.getElementById("topic").value.trim();
+<script>
+  let names = [];
+  let topic = "";
+  let currentRound = 1;
+  let turn = 0;
+  let debateLog = [[], []];
+  let totalTurns = 0;
+  let recognition;
+  let timerInterval;
+  let timeLeft = 60;
+  let winnerIndex = null;
 
-      if (!n1 || !n2 || !topic) {
-        alert("Please fill in all fields");
-        return;
-      }
+  function chooseFirst() {
+    const n1 = document.getElementById("name1").value.trim();
+    const n2 = document.getElementById("name2").value.trim();
+    topic = document.getElementById("topic").value.trim();
 
-      names = [n1, n2];
-      const chosen = Math.random() < 0.5 ? n1 : n2;
-      if (names[0] !== chosen) names.reverse();
-
-      document.getElementById("setup").style.display = "none";
-      document.getElementById("chooseResult").style.display = "block";
-      document.getElementById("chosenOne").innerText = `${chosen} goes first!`;
+    if (!n1 || !n2 || !topic) {
+      alert("Please fill in all fields");
+      return;
     }
 
-    function startDebate() {
-      document.getElementById("chooseResult").style.display = "none";
-      document.getElementById("debate").style.display = "block";
-      currentRound = 1;
-      turn = 0;
-      totalTurns = 0;
-      debateLog = [[], []];
-      timeLeft = 60;
-      updateTurn();
-      startTimer();
+    names = [n1, n2];
+    const chosen = Math.random() < 0.5 ? n1 : n2;
+    if (names[0] !== chosen) names.reverse();
+
+    document.getElementById("setup").style.display = "none";
+    document.getElementById("chooseResult").style.display = "block";
+    document.getElementById("chosenOne").innerText = `${chosen} goes first!`;
+  }
+
+  function startDebate() {
+    document.getElementById("chooseResult").style.display = "none";
+    document.getElementById("debate").style.display = "block";
+    currentRound = 1;
+    turn = 0;
+    totalTurns = 0;
+    debateLog = [[], []];
+    timeLeft = 60;
+    winnerIndex = null;
+    updateTurn();
+    startTimer();
+  }
+
+  function nextTurn() {
+    const text = document.getElementById("argumentBox").value.trim();
+    if (!text) {
+      alert("Please enter your argument before moving on.");
+      return;
     }
+    debateLog[turn].push(text);
+    document.getElementById("argumentBox").value = "";
+    totalTurns++;
+    stopTimer();
 
-    function nextTurn() {
-      const text = document.getElementById("argumentBox").value.trim();
-      if (!text) {
-        alert("Please enter your argument before moving on.");
-        return;
-      }
-      debateLog[turn].push(text);
-      document.getElementById("argumentBox").value = "";
-      totalTurns++;
-      stopTimer();
-
-      if (totalTurns >= 6) {
-        document.getElementById("debate").style.display = "none";
-        showVerdict();
-        return;
-      }
-
-      turn = (turn + 1) % 2;
-      if (totalTurns % 2 === 0) currentRound++;
-      updateTurn();
-      timeLeft = 60;
-      startTimer();
-    }
-
-    function updateTurn() {
-      const roundTitles = [
-        "Opening Statements",
-        "Rebuttals",
-        "Final Remarks",
-      ];
-      document.getElementById("roundTitle").innerText = `Round ${currentRound}: ${roundTitles[currentRound - 1]}`;
-      document.getElementById("turnText").innerText = `🎤 ${roundTitles[currentRound - 1]} – ${names[turn]}`;
-    }
-
-    function showVerdict() {
-      document.getElementById("verdict").style.display = "block";
-      const len1 = debateLog[0].join(" ").length;
-      const len2 = debateLog[1].join(" ").length;
-      let winner = len1 > len2 ? names[0] : names[1];
-      if (len1 === len2) winner = "It's a Tie!";
-
-      document.getElementById("verdictText").innerText = `After reviewing the arguments, the judge declares: ${winner} wins the debate on '${topic}'.\n\nThank you both for participating!`;
-    }
-
-    function resetDebate() {
-      document.getElementById("setup").style.display = "block";
-      document.getElementById("chooseResult").style.display = "none";
+    if (totalTurns >= 6) {
       document.getElementById("debate").style.display = "none";
-      document.getElementById("verdict").style.display = "none";
-      document.getElementById("name1").value = "";
-      document.getElementById("name2").value = "";
-      document.getElementById("topic").value = "";
-      document.getElementById("argumentBox").value = "";
-      document.getElementById("chosenOne").innerHTML = "";
-      document.getElementById("timer").innerText = "";
-      names = [];
-      topic = "";
-      currentRound = 1;
-      turn = 0;
-      totalTurns = 0;
-      debateLog = [[], []];
-      stopTimer();
+      showVerdict();
+      return;
     }
 
-    function startRecording() {
-      if (!("webkitSpeechRecognition" in window)) {
-        alert("Speech Recognition not supported on this browser.");
-        return;
+    turn = (turn + 1) % 2;
+    if (totalTurns % 2 === 0) currentRound++;
+    updateTurn();
+    timeLeft = 60;
+    startTimer();
+  }
+
+  function updateTurn() {
+    const roundTitles = [
+      "Opening Statements",
+      "Rebuttals",
+      "Final Remarks",
+    ];
+    document.getElementById("roundTitle").innerText = `Round ${currentRound}: ${roundTitles[currentRound - 1]}`;
+    document.getElementById("turnText").innerText = `🎤 ${roundTitles[currentRound - 1]} – ${names[turn]}`;
+  }
+
+  function showVerdict() {
+    document.getElementById("verdict").style.display = "block";
+    const len1 = debateLog[0].join(" ").length;
+    const len2 = debateLog[1].join(" ").length;
+    if (len1 === len2) {
+      winnerIndex = null; // Tie
+      document.getElementById("verdictText").innerText = `It's a Tie on '${topic}'. Thank you both!`;
+    } else {
+      winnerIndex = len1 > len2 ? 0 : 1;
+      document.getElementById("verdictText").innerText = `After reviewing the arguments, the judge declares: ${names[winnerIndex]} wins the debate on '${topic}'.\n\nThank you both for participating!`;
+    }
+  }
+
+  function resetDebate() {
+    document.getElementById("setup").style.display = "block";
+    document.getElementById("chooseResult").style.display = "none";
+    document.getElementById("debate").style.display = "none";
+    document.getElementById("verdict").style.display = "none";
+    document.getElementById("certificates").style.display = "none";
+    document.getElementById("name1").value = "";
+    document.getElementById("name2").value = "";
+    document.getElementById("topic").value = "";
+    document.getElementById("argumentBox").value = "";
+    document.getElementById("chosenOne").innerHTML = "";
+    document.getElementById("timer").innerText = "";
+    document.getElementById("certContainer").innerHTML = "";
+    document.getElementById("bgImageUrl").value = "";
+    names = [];
+    topic = "";
+    currentRound = 1;
+    turn = 0;
+    totalTurns = 0;
+    debateLog = [[], []];
+    winnerIndex = null;
+    stopTimer();
+  }
+
+  function startRecording() {
+    if (!("webkitSpeechRecognition" in window)) {
+      alert("Speech Recognition not supported on this browser.");
+      return;
+    }
+
+    recognition = new webkitSpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = "en-US";
+
+    recognition.start();
+    recognition.onresult = function (event) {
+      const speechResult = event.results[0][0].transcript;
+      document.getElementById("argumentBox").value = speechResult;
+    };
+
+    recognition.onerror = function (event) {
+      alert("Speech recognition error: " + event.error);
+    };
+  }
+
+  function startTimer() {
+    document.getElementById("timer").innerText = `Time left: ${timeLeft} sec`;
+    timerInterval = setInterval(() => {
+      timeLeft--;
+      if (timeLeft <= 0) {
+        clearInterval(timerInterval);
+        alert(`Time's up! No argument given. ${names[(turn + 1) % 2]} wins the debate!`);
+        showForcedWin((turn + 1) % 2);
+      } else {
+        document.getElementById("timer").innerText = `Time left: ${timeLeft} sec`;
       }
+    }, 1000);
+  }
 
-      recognition = new webkitSpeechRecognition();
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      recognition.lang = "en-US";
+  function stopTimer() {
+    clearInterval(timerInterval);
+  }
 
-      recognition.start();
-      recognition.onresult = function (event) {
-        const speechResult = event.results[0][0].transcript;
-        document.getElementById("argumentBox").value = speechResult;
-      };
+  function showForcedWin(winnerIdx) {
+    winnerIndex = winnerIdx;
+    document.getElementById("debate").style.display = "none";
+    document.getElementById("verdict").style.display = "block";
+    document.getElementById("verdictText").innerText = 
+      `${names[winnerIdx]} wins the debate because the other side ran out of time!`;
+  }
 
-      recognition.onerror = function (event) {
-        alert("Speech recognition error: " + event.error);
-      };
+  function makeCertificates() {
+    if (winnerIndex === null) {
+      alert("No winner to create certificates for (It's a tie).");
+      return;
+    }
+    document.getElementById("certificates").style.display = "block";
+
+    const bgUrl = document.getElementById("bgImageUrl").value.trim();
+
+    const certContainer = document.getElementById("certContainer");
+    certContainer.innerHTML = ""; // Clear previous
+
+    // Winner certificate
+    const winnerCert = createCertificate(
+      names[winnerIndex],
+      "Winner",
+      `Winner of the debate on "${topic}"`,
+      bgUrl
+    );
+    // Loser certificate
+    const loserIndex = (winnerIndex + 1) % 2;
+    const loserCert = createCertificate(
+      names[loserIndex],
+      "Participant",
+      `Participant in the debate on "${topic}"`,
+      bgUrl
+    );
+
+    certContainer.appendChild(winnerCert);
+    certContainer.appendChild(loserCert);
+  }
+
+  function createCertificate(name, status, subtitle, bgUrl) {
+    const cert = document.createElement("div");
+    cert.className = "certificate";
+    if(bgUrl) {
+      cert.style.backgroundImage = `url(${bgUrl})`;
+      cert.style.color = "white"; // White text on background
+      cert.style.borderColor = "white";
+      cert.style.textShadow = "2px 2px 4px black";
     }
 
-    function startTimer() {
-      document.getElementById("timer").innerText = `Time left: ${timeLeft} sec`;
-      timerInterval = setInterval(() => {
-        timeLeft--;
-        if (timeLeft <= 0) {
-          clearInterval(timerInterval);
-          alert(`Time's up! No argument given. ${names[(turn + 1) % 2]} wins the debate!`);
-          showForcedWin((turn + 1) % 2);
-        } else {
-          document.getElementById("timer").innerText = `Time left: ${timeLeft} sec`;
-        }
-      }, 1000);
-    }
+    const title = document.createElement("div");
+    title.className = "cert-title";
+    title.textContent = status === "Winner" ? "Certificate of Achievement" : "Certificate of Participation";
 
-    function stopTimer() {
-      clearInterval(timerInterval);
-    }
+    const certName = document.createElement("div");
+    certName.className = "cert-name";
+    certName.textContent = name;
 
-    function showForcedWin(winnerIndex) {
-      document.getElementById("debate").style.display = "none";
-      document.getElementById("verdict").style.display = "block";
-      document.getElementById("verdictText").innerText = 
-        `${names[winnerIndex]} wins the debate because the other side ran out of time!`;
-    }
-  </script>
+    const certStatus = document.createElement("div");
+    certStatus.className = "cert-status";
+    certStatus.textContent = status;
+
+    const certSubtitle = document.createElement("div");
+    certSubtitle.style.marginTop = "10px";
+    certSubtitle.style.fontStyle = "italic";
+    certSubtitle.textContent = subtitle;
+
+    cert.appendChild(title);
+    cert.appendChild(certName);
+    cert.appendChild(certStatus);
+    cert.appendChild(certSubtitle);
+
+    return cert;
+  }
+</script>
 </body>
 </html>
-
