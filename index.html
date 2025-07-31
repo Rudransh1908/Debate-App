@@ -1,216 +1,254 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Debate App</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Debate Judge</title>
   <style>
     body {
-      background-color: black;
-      color: white;
-      font-family: Arial, sans-serif;
+      font-family: 'Segoe UI', sans-serif;
       text-align: center;
+      padding: 20px;
+      background: linear-gradient(to bottom right, #0f2027, #203a43, #2c5364);
+      color: #f8f8f8;
     }
-    #debate, #verdict, #resultDisplay {
-      display: none;
-      margin-top: 20px;
+    input, textarea, button {
+      color: #fff;
+      background-color: #2b2b2b;
+      border: 2px solid #444;
+      border-radius: 12px;
+      padding: 10px;
+      margin: 10px;
+      font-size: 16px;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    }
+    input:focus, textarea:focus {
+      border-color: #1abc9c;
+      outline: none;
+      box-shadow: 0 0 8px rgba(26, 188, 156, 0.6);
+    }
+    button:hover {
+      background-color: #1abc9c;
+      color: #000;
+      transform: scale(1.05);
+      cursor: pointer;
     }
     textarea {
       width: 80%;
       height: 100px;
-      margin: 10px 0;
+      resize: vertical;
     }
-    .certificate {
-      border: 10px solid gold;
-      padding: 20px;
-      margin: 20px;
-      display: inline-block;
-      width: 250px;
-      border-radius: 10px;
+    #certificate {
+      margin-top: 30px;
+      padding: 30px;
+      border: 5px solid gold;
+      border-radius: 20px;
+      background: linear-gradient(to bottom, #fff8dc, #ffeaa7);
+      color: #2c3e50;
+      width: 80%;
+      margin-left: auto;
+      margin-right: auto;
+      box-shadow: 0 0 20px rgba(255, 215, 0, 0.7);
     }
-    .loser {
+    #certificate.tie {
+      border-color: #aaa;
+      background: linear-gradient(to bottom, #e0e0e0, #c0c0c0);
+    }
+    #certificate.loser {
       border-color: silver;
+      background: linear-gradient(to bottom, #dddddd, #bbbbbb);
     }
-    .tie {
-      border-color: gray;
-    }
-    .ribbon {
+    .turn {
+      font-weight: bold;
       font-size: 20px;
-      margin-bottom: 10px;
     }
-    .gold { color: gold; }
-    .silver { color: silver; }
-    .gray { color: gray; }
+    h1, h2 {
+      color: #f1c40f;
+      text-shadow: 1px 1px 4px #000;
+    }
+    #feedback {
+      margin: 20px auto;
+      padding: 15px;
+      width: 80%;
+      background-color: #333;
+      border-left: 5px solid #1abc9c;
+      text-align: left;
+      border-radius: 12px;
+      min-height: 50px;
+    }
   </style>
 </head>
 <body>
+  <h1>AI Debate Judge</h1>
+  <p>Welcome! Enter participant names and topic to begin:</p>
 
-  <h1>Debate App</h1>
   <div id="setup">
-    <input type="text" id="name1" placeholder="Debater 1"><br><br>
-    <input type="text" id="name2" placeholder="Debater 2"><br><br>
-    <input type="text" id="topic" placeholder="Debate Topic"><br><br>
-    <button onclick="chooseFirst()">Choose</button>
+    <input type="text" id="name1" placeholder="Debater 1 Name" />
+    <br />
+    <input type="text" id="name2" placeholder="Debater 2 Name" />
+    <br />
+    <input type="text" id="topic" placeholder="Debate Topic" />
+    <br />
+    <button onclick="startDebate()">Randomly Choose Who Starts</button>
   </div>
 
-  <div id="resultDisplay">
-    <h2 id="chosenOne"></h2>
-    <button onclick="startDebate()">Start Debate</button>
-  </div>
-
-  <div id="debate">
+  <div id="debate" style="display:none;">
     <h2 id="roundTitle"></h2>
-    <h3 id="turnTitle"></h3>
-    <p id="timer">Time left: 60 sec</p>
-    <textarea id="argumentBox" placeholder="Type your argument here..."></textarea><br>
-    <button onclick="nextTurn()">Next Turn</button>
+    <div id="turnNotice" class="turn"></div>
+    <textarea id="argument" placeholder="Enter your argument..."></textarea><br />
+    <button onclick="submitArgument()">Submit Turn</button>
   </div>
 
-  <div id="verdict">
-    <h2 id="verdictText"></h2>
-    <div id="certificates"></div>
-    <button id="continueBtn" style="display:none;" onclick="continueDebate()">Continue Debate</button>
-  </div>
+  <div id="feedback" style="display:none;"></div>
+  <div id="certificate" style="display:none;"></div>
 
-<script>
-  let names = [];
-  let topic = "";
-  let turn = 0;
-  let currentRound = 1;
-  let totalTurns = 0;
-  let debateLog = [[], []];
-  let timerInterval;
-  let timeLeft = 60;
-  let extended = false;
+  <script>
+    let names = [];
+    let topic = "";
+    let currentTurn = 0;
+    let currentRound = 0;
+    const rounds = ["Opening Statements", "Rebuttals", "Final Arguments"];
+    const argumentsList = [[], []];
 
-  function chooseFirst() {
-    const n1 = document.getElementById('name1').value.trim();
-    const n2 = document.getElementById('name2').value.trim();
-    topic = document.getElementById('topic').value.trim();
+    function startDebate() {
+      const name1 = document.getElementById("name1").value.trim();
+      const name2 = document.getElementById("name2").value.trim();
+      topic = document.getElementById("topic").value.trim();
 
-    if (!n1 || !n2 || !topic) {
-      alert("Please fill in all fields");
-      return;
-    }
-
-    names = [n1, n2];
-    const first = Math.random() < 0.5 ? n1 : n2;
-    if (first !== names[0]) names.reverse();
-
-    document.getElementById('setup').style.display = 'none';
-    document.getElementById('resultDisplay').style.display = 'block';
-    document.getElementById('chosenOne').innerText = `${first} goes first!`;
-  }
-
-  function startDebate() {
-    document.getElementById('resultDisplay').style.display = 'none';
-    document.getElementById('debate').style.display = 'block';
-    updateTurn();
-    startTimer();
-  }
-
-  function updateTurn() {
-    const rounds = ["Opening Statements", "Rebuttals", "Final Arguments", "Extra Round"];
-    document.getElementById('roundTitle').innerText = `Round ${currentRound}: ${rounds[currentRound - 1]}`;
-    document.getElementById('turnTitle').innerText = `${names[turn]}'s turn`;
-  }
-
-  function startTimer() {
-    timeLeft = 60;
-    document.getElementById("timer").innerText = `Time left: ${timeLeft} sec`;
-    timerInterval = setInterval(() => {
-      timeLeft--;
-      document.getElementById("timer").innerText = `Time left: ${timeLeft} sec`;
-      if (timeLeft <= 0) {
-        clearInterval(timerInterval);
-        alert(`${names[turn]} ran out of time! ${names[(turn + 1) % 2]} wins!`);
-        showVerdict(names[(turn + 1) % 2], names[turn]);
+      if (!name1 || !name2 || !topic) {
+        alert("Please fill all fields.");
+        return;
       }
-    }, 1000);
-  }
 
-  function stopTimer() {
-    clearInterval(timerInterval);
-  }
+      names = [name1, name2];
+      currentTurn = Math.round(Math.random()); // Randomly pick starter
+      currentRound = 0;
+      argumentsList[0] = [];
+      argumentsList[1] = [];
 
-  function nextTurn() {
-    const argument = document.getElementById('argumentBox').value.trim();
-    if (!argument) {
-      alert("Please type something.");
-      return;
-    }
-    stopTimer();
-    debateLog[turn].push(argument);
-    document.getElementById('argumentBox').value = "";
-    totalTurns++;
+      document.getElementById("setup").style.display = "none";
+      document.getElementById("certificate").style.display = "none";
+      document.getElementById("feedback").style.display = "none";
+      document.getElementById("debate").style.display = "block";
 
-    if ((!extended && totalTurns >= 6) || (extended && totalTurns >= 8)) {
-      document.getElementById('debate').style.display = 'none';
-      evaluateDebate();
-      return;
+      nextTurn();
     }
 
-    turn = (turn + 1) % 2;
-    if (totalTurns % 2 === 0) currentRound++;
-    updateTurn();
-    startTimer();
-  }
+    function nextTurn() {
+      if (currentRound >= rounds.length) {
+        finishDebate();
+        return;
+      }
 
-  function evaluateDebate() {
-    const [a, b] = debateLog;
-    const isJunk = text => !text || text.length < 10 || /^[a-z]+$/i.test(text);
-
-    const aBad = a.every(isJunk);
-    const bBad = b.every(isJunk);
-
-    if (aBad && bBad) {
-      showTie();
-    } else if (aBad) {
-      showVerdict(names[1], names[0]);
-    } else if (bBad) {
-      showVerdict(names[0], names[1]);
-    } else {
-      showTie();
+      document.getElementById("roundTitle").textContent = `Round ${currentRound + 1}: ${rounds[currentRound]}`;
+      document.getElementById("turnNotice").textContent = `${names[currentTurn]}'s Turn`;
+      document.getElementById("argument").value = "";
+      document.getElementById("feedback").style.display = "none";
     }
-  }
 
-  function showVerdict(winner, loser) {
-    document.getElementById('verdict').style.display = 'block';
-    document.getElementById('verdictText').innerText = `${winner} wins the debate!`;
-    document.getElementById('certificates').innerHTML = `
-      <div class="certificate">
-        <div class="ribbon gold">🏆 Winner</div>
-        <h3>${winner}</h3>
-        <p>Debate Topic: ${topic}</p>
-      </div>
-      <div class="certificate loser">
-        <div class="ribbon silver">🎖 Loser</div>
-        <h3>${loser}</h3>
-        <p>Debate Topic: ${topic}</p>
-      </div>`;
-  }
+    function submitArgument() {
+      const arg = document.getElementById("argument").value.trim();
+      if (!arg) {
+        alert("Please write your argument.");
+        return;
+      }
 
-  function showTie() {
-    document.getElementById('verdict').style.display = 'block';
-    document.getElementById('verdictText').innerText = `It's a tie!`;
-    document.getElementById('certificates').innerHTML = `
-      <div class="certificate tie">
-        <div class="ribbon gray">🤝 Tie</div>
-        <h3>${names[0]} & ${names[1]}</h3>
-        <p>Debate Topic: ${topic}</p>
-      </div>`;
-    document.getElementById('continueBtn').style.display = 'inline-block';
-  }
+      argumentsList[currentTurn].push(arg);
 
-  function continueDebate() {
-    document.getElementById('verdict').style.display = 'none';
-    document.getElementById('debate').style.display = 'block';
-    extended = true;
-    currentRound = 4;
-    totalTurns = 6;
-    turn = 0;
-    updateTurn();
-    startTimer();
-  }
-</script>
+      // Show judge feedback
+      showFeedback(currentTurn, arg);
 
+      // Next turn logic
+      if (currentTurn === 1) {
+        currentRound++;
+      }
+      currentTurn = 1 - currentTurn;
+
+      // Delay so user can see feedback
+      setTimeout(() => {
+        nextTurn();
+      }, 2000);
+    }
+
+    function showFeedback(turn, text) {
+      const feedbackDiv = document.getElementById("feedback");
+      feedbackDiv.style.display = "block";
+      feedbackDiv.innerHTML = `<strong>Judge:</strong> ${names[turn]} made some ${analyzeText(text)}.`;
+    }
+
+    function analyzeText(text) {
+      if (text.length < 15 || /[asdfghjklzxcvbnm]{6,}/i.test(text.toLowerCase())) {
+        return "weak or unclear points";
+      }
+      if (text.toLowerCase().includes("because") || text.includes("for example") || text.includes("evidence")) {
+        return "solid reasoning and evidence";
+      }
+      return "relevant arguments";
+    }
+
+    function finishDebate() {
+      document.getElementById("debate").style.display = "none";
+
+      // Simple logic to determine winner or tie:
+      const aArgs = argumentsList[0].join(" ");
+      const bArgs = argumentsList[1].join(" ");
+
+      const aWeak = isWeakText(aArgs);
+      const bWeak = isWeakText(bArgs);
+
+      let verdictText = "";
+      let winner = null;
+
+      if (aWeak && bWeak) {
+        verdictText = "It's a tie! Both debaters gave weak or unclear arguments.";
+      } else if (aWeak) {
+        verdictText = `${names[1]} wins! ${names[0]} gave weaker arguments.`;
+        winner = 1;
+      } else if (bWeak) {
+        verdictText = `${names[0]} wins! ${names[1]} gave weaker arguments.`;
+        winner = 0;
+      } else {
+        verdictText = "It's a tie! Both gave good arguments.";
+      }
+
+      showCertificate(verdictText, winner);
+    }
+
+    function isWeakText(text) {
+      if (!text) return true;
+      // Basic check: too short or mostly gibberish (letters repeated)
+      if (text.length < 30) return true;
+      if (/[asdfghjklzxcvbnm]{8,}/i.test(text.toLowerCase())) return true;
+      return false;
+    }
+
+    function showCertificate(verdict, winner) {
+      const certDiv = document.getElementById("certificate");
+      certDiv.style.display = "block";
+      certDiv.innerHTML = `<h2>Judge's Verdict</h2><p>${verdict}</p>`;
+
+      if (winner === null) {
+        // Tie certificate
+        certDiv.innerHTML += `
+          <div class="tie" style="border: 5px solid gray; background: linear-gradient(to bottom, #e0e0e0, #bdbdbd); padding: 20px; margin: 20px auto; width: 60%; border-radius: 15px; color: #333;">
+            <h3>It's a Tie!</h3>
+            <p>${names[0]} &amp; ${names[1]}</p>
+            <p>Topic: ${topic}</p>
+          </div>`;
+      } else {
+        // Winner certificate
+        certDiv.innerHTML += `
+          <div style="border: 5px solid gold; background: linear-gradient(to bottom, #fff8dc, #ffeaa7); padding: 20px; margin: 20px auto; width: 60%; border-radius: 15px; color: #333;">
+            <h3>Winner: ${names[winner]}</h3>
+            <p>Topic: ${topic}</p>
+          </div>
+          <div style="border: 5px solid silver; background: linear-gradient(to bottom, #dddddd, #bbbbbb); padding: 20px; margin: 20px auto; width: 60%; border-radius: 15px; color: #333;">
+            <h3>Loser: ${names[1 - winner]}</h3>
+            <p>Topic: ${topic}</p>
+          </div>`;
+      }
+    }
+  </script>
 </body>
 </html>
