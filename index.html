@@ -111,6 +111,14 @@
     const rounds = ["Opening Statements", "Rebuttals", "Final Arguments"];
     const argumentsList = [[], []];
 
+    function speak(text) {
+      const msg = new SpeechSynthesisUtterance(text);
+      msg.lang = 'en-US';
+      msg.pitch = 1;
+      msg.rate = 1;
+      window.speechSynthesis.speak(msg);
+    }
+
     function startDebate() {
       const name1 = document.getElementById("name1").value.trim();
       const name2 = document.getElementById("name2").value.trim();
@@ -155,17 +163,13 @@
       }
 
       argumentsList[currentTurn].push(arg);
-
-      // Show judge feedback
       showFeedback(currentTurn, arg);
 
-      // Next turn logic
       if (currentTurn === 1) {
         currentRound++;
       }
       currentTurn = 1 - currentTurn;
 
-      // Delay so user can see feedback
       setTimeout(() => {
         nextTurn();
       }, 2000);
@@ -174,7 +178,10 @@
     function showFeedback(turn, text) {
       const feedbackDiv = document.getElementById("feedback");
       feedbackDiv.style.display = "block";
-      feedbackDiv.innerHTML = `<strong>Judge:</strong> ${names[turn]} made some ${analyzeText(text)}.`;
+
+      const feedbackText = `${names[turn]} made some ${analyzeText(text)}.`;
+      feedbackDiv.innerHTML = `<strong>Judge:</strong> ${feedbackText}`;
+      speak(`Judge says: ${feedbackText}`);
     }
 
     function analyzeText(text) {
@@ -190,7 +197,6 @@
     function finishDebate() {
       document.getElementById("debate").style.display = "none";
 
-      // Simple logic to determine winner or tie:
       const aArgs = argumentsList[0].join(" ");
       const bArgs = argumentsList[1].join(" ");
 
@@ -213,11 +219,11 @@
       }
 
       showCertificate(verdictText, winner);
+      speak(verdictText);
     }
 
     function isWeakText(text) {
       if (!text) return true;
-      // Basic check: too short or mostly gibberish (letters repeated)
       if (text.length < 30) return true;
       if (/[asdfghjklzxcvbnm]{8,}/i.test(text.toLowerCase())) return true;
       return false;
@@ -229,7 +235,6 @@
       certDiv.innerHTML = `<h2>Judge's Verdict</h2><p>${verdict}</p>`;
 
       if (winner === null) {
-        // Tie certificate
         certDiv.innerHTML += `
           <div class="tie" style="border: 5px solid gray; background: linear-gradient(to bottom, #e0e0e0, #bdbdbd); padding: 20px; margin: 20px auto; width: 60%; border-radius: 15px; color: #333;">
             <h3>It's a Tie!</h3>
@@ -237,7 +242,6 @@
             <p>Topic: ${topic}</p>
           </div>`;
       } else {
-        // Winner certificate
         certDiv.innerHTML += `
           <div style="border: 5px solid gold; background: linear-gradient(to bottom, #fff8dc, #ffeaa7); padding: 20px; margin: 20px auto; width: 60%; border-radius: 15px; color: #333;">
             <h3>Winner: ${names[winner]}</h3>
