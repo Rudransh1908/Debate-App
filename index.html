@@ -7,46 +7,35 @@
   <style>
     body {
       font-family: 'Segoe UI', sans-serif;
+      text-align: center;
       padding: 20px;
-      background: linear-gradient(145deg, #0a0a0a, #1a1a1a);
+      background: #000;
       color: #fff;
     }
-
-    h1, h2 {
-      color: gold;
-    }
-
     input, textarea, button {
-      background: #121212;
       color: #fff;
-      border: 2px solid #333;
+      background-color: #1c1c1c;
+      border: 2px solid #555;
       border-radius: 12px;
       padding: 10px;
       margin: 10px;
       font-size: 16px;
-      transition: background 0.3s, color 0.3s;
+      transition: background-color 0.3s, color 0.3s;
     }
-
-    input:focus, textarea:focus {
-      outline: none;
-      border-color: #1abc9c;
-    }
-
     button:hover {
       background-color: #1abc9c;
       color: #000;
       cursor: pointer;
     }
-
     textarea {
       width: 80%;
       height: 100px;
       resize: vertical;
     }
-
     #certificate {
       margin-top: 30px;
       padding: 30px;
+      border: 5px solid gold;
       border-radius: 20px;
       background: #fff8dc;
       color: #2c3e50;
@@ -54,13 +43,27 @@
       margin-left: auto;
       margin-right: auto;
       display: none;
+      box-shadow: 0 0 20px gold;
     }
-
+    #certificate.tie {
+      border-color: #aaa;
+      background: #c0c0c0;
+      color: #333;
+      box-shadow: none;
+    }
+    #certificate.loser {
+      border-color: silver;
+      background: #bbbbbb;
+      color: #333;
+      box-shadow: none;
+    }
     .turn {
       font-weight: bold;
       font-size: 20px;
     }
-
+    h1, h2 {
+      color: gold;
+    }
     #feedback {
       margin: 20px auto;
       padding: 15px;
@@ -69,4 +72,257 @@
       border-left: 5px solid #1abc9c;
       text-align: left;
       border-radius: 12px;
+      min-height: 50px;
       display: none;
+    }
+    #voiceBtn {
+      font-size: 20px;
+      padding: 10px 20px;
+      margin-left: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>AI Debate Judge</h1>
+  <p>Enter participant names and topic to begin:</p>
+
+  <div id="setup">
+    <input type="text" id="name1" placeholder="Debater 1 Name" /><br />
+    <input type="text" id="name2" placeholder="Debater 2 Name" /><br />
+    <input type="text" id="topic" placeholder="Debate Topic" /><br />
+    <button onclick="startDebate()">Randomly Choose Who Starts</button>
+  </div>
+
+  <div id="debate" style="display:none;">
+    <h2 id="roundTitle"></h2>
+    <div id="turnNotice" class="turn"></div>
+    <textarea id="argument" placeholder="Enter your argument..."></textarea><br />
+    <button onclick="submitArgument()">Submit Turn</button>
+    <button onclick="toggleVoiceInput()" id="voiceBtn">🎤 Start Voice Input</button>
+  </div>
+
+  <div id="feedback"></div>
+  <div id="certificate"></div>
+
+  <script>
+    let names = [];
+    let topic = "";
+    let currentTurn = 0;  // 0 or 1 for debater index
+    let currentRound = 0; // 0,1,2 for rounds
+    const rounds = ["Opening Statements", "Rebuttals", "Final Arguments"];
+    const argumentsList = [[], []]; // arguments for both debaters
+
+    function startDebate() {
+      const name1 = document.getElementById("name1").value.trim();
+      const name2 = document.getElementById("name2").value.trim();
+      topic = document.getElementById("topic").value.trim();
+      if (!name1 || !name2 || !topic) {
+        alert("Please fill all fields.");
+        return;
+      }
+      names = [name1, name2];
+      currentTurn = Math.round(Math.random());
+      currentRound = 0;
+      argumentsList[0] = [];
+      argumentsList[1] = [];
+      document.getElementById("setup").style.display = "none";
+      document.getElementById("certificate").style.display = "none";
+      document.getElementById("feedback").style.display = "none";
+      document.getElementById("debate").style.display = "block";
+      nextTurn();
+    }
+
+    function nextTurn() {
+      if (currentRound >= rounds.length) {
+        finishDebate();
+        return;
+      }
+      document.getElementById("roundTitle").textContent = `Round ${currentRound + 1}: ${rounds[currentRound]}`;
+      document.getElementById("turnNotice").textContent = `${names[currentTurn]}'s Turn`;
+      document.getElementById("argument").value = "";
+      document.getElementById("feedback").style.display = "none";
+    }
+
+    function submitArgument() {
+      const arg = document.getElementById("argument").value.trim();
+      if (!arg) {
+        alert("Please write your argument.");
+        return;
+      }
+      argumentsList[currentTurn].push(arg);
+      showFeedback(currentTurn, arg);
+
+      // Alternate turn
+      if (currentTurn === 1) currentRound++;
+      currentTurn = 1 - currentTurn;
+
+      // Give time to read feedback before next turn
+      setTimeout(nextTurn, 2000);
+    }
+
+    function showFeedback(turn, text) {
+      const feedbackDiv = document.getElementById("feedback");
+      feedbackDiv.style.display = "block";
+      feedbackDiv.innerHTML = `<strong>Judge:</strong> ${names[turn]} - ${analyzeText(text)}`;
+    }
+
+    // Analyze single argument turn for clarity, reasoning, evidence
+    function analyzeText(text) {
+      const lower = text.toLowerCase();
+      if (text.length < 20) return "Argument too short or underdeveloped.";
+      if (/[asdfghjkl]{6,}/i.test(lower)) return "Argument contains unclear or repeated letters.";
+      if (lower.includes("because") || lower.includes("for example") || lower.includes("evidence")) {
+        return "Strong reasoning and good evidence.";
+      }
+      if (lower.includes("i think") || lower.includes("maybe")) {
+        return "Somewhat uncertain argument, could be stronger.";
+      }
+      return "Clear and relevant points.";
+    }
+
+    // Final decisive judge logic that processes all arguments combined
+    function finishDebate() {
+      document.getElementById("debate").style.display = "none";
+
+      const debater1Text = argumentsList[0].join(" ");
+      const debater2Text = argumentsList[1].join(" ");
+
+      // Compute scores for both debaters
+      const score1 = scoreArguments(debater1Text);
+      const score2 = scoreArguments(debater2Text);
+
+      // Threshold for declaring a tie if scores very close (<10%)
+      const diff = Math.abs(score1 - score2);
+      const avg = (score1 + score2) / 2;
+      let verdict = "";
+      let winner = null;
+
+      if (avg === 0) {
+        verdict = "Both debaters failed to present any valid arguments.";
+      } else if (diff / avg < 0.1) {
+        // Scores too close, but no sitting on fence: still pick winner if any small advantage
+        if (score1 > score2) {
+          verdict = `After careful consideration, ${names[0]} wins with stronger overall reasoning.`;
+          winner = 0;
+        } else if (score2 > score1) {
+          verdict = `After careful consideration, ${names[1]} wins with stronger overall reasoning.`;
+          winner = 1;
+        } else {
+          verdict = "It's a close debate, but we have a tie.";
+        }
+      } else {
+        // Clear difference
+        if (score1 > score2) {
+          verdict = `${names[0]} wins decisively with stronger arguments and reasoning.`;
+          winner = 0;
+        } else {
+          verdict = `${names[1]} wins decisively with stronger arguments and reasoning.`;
+          winner = 1;
+        }
+      }
+
+      showCertificate(verdict, winner);
+    }
+
+    // Scoring function for all combined arguments of a debater
+    // Scores based on length, reasoning, use of evidence, clarity
+    function scoreArguments(text) {
+      const lower = text.toLowerCase();
+
+      // Base score on length (min 30 chars counts), cap to avoid abuse
+      let lengthScore = Math.min(text.length / 10, 10);
+
+      // Bonus points for keywords showing reasoning & evidence
+      let reasoningBonus = 0;
+      const reasoningWords = ["because", "therefore", "thus", "hence", "for example", "evidence", "proof"];
+      reasoningWords.forEach(word => {
+        if (lower.includes(word)) reasoningBonus += 2;
+      });
+
+      // Deduct points for unclear patterns
+      let unclearPenalty = 0;
+      if (/[asdfghjkl]{8,}/i.test(lower)) unclearPenalty = 5;
+      if (text.length < 30) unclearPenalty += 5;
+
+      // Bonus for positive phrases
+      let clarityBonus = 0;
+      if (!lower.includes("maybe") && !lower.includes("i think") && !lower.includes("possibly")) clarityBonus = 3;
+
+      // Final score
+      const score = lengthScore + reasoningBonus + clarityBonus - unclearPenalty;
+      return Math.max(0, score); // avoid negative
+    }
+
+    function showCertificate(verdict, winner) {
+      const cert = document.getElementById("certificate");
+      cert.style.display = "block";
+      cert.innerHTML = `<h2>Judge's Verdict</h2><p>${verdict}</p>`;
+      if (winner === null) {
+        cert.className = "tie";
+        cert.innerHTML += `
+          <div>
+            <h3>It's a Tie!</h3>
+            <p>${names[0]} & ${names[1]}</p>
+            <p>Topic: ${topic}</p>
+          </div>`;
+      } else {
+        cert.className = "";
+        cert.innerHTML += `
+          <div style="border: 5px solid gold; padding: 20px; border-radius: 15px; background: #fff8dc; color: #000;">
+            <h3>Winner: ${names[winner]}</h3>
+            <p>Topic: ${topic}</p>
+          </div>
+          <div style="border: 5px solid silver; padding: 20px; border-radius: 15px; background: #ddd; color: #000;">
+            <h3>Runner-up: ${names[1 - winner]}</h3>
+            <p>Topic: ${topic}</p>
+          </div>`;
+      }
+    }
+
+    // Speech-to-text logic
+    let recognition;
+    let listening = false;
+
+    function toggleVoiceInput() {
+      const button = document.getElementById("voiceBtn");
+      if (!('webkitSpeechRecognition' in window)) {
+        alert("Speech Recognition not supported in your browser.");
+        return;
+      }
+
+      if (!recognition) {
+        recognition = new webkitSpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = "en-US";
+
+        recognition.onresult = function (event) {
+          const speechResult = event.results[0][0].transcript;
+          document.getElementById("argument").value += speechResult + " ";
+        };
+
+        recognition.onerror = function () {
+          alert("Speech recognition error. Try again.");
+          listening = false;
+          button.textContent = "🎤 Start Voice Input";
+        };
+
+        recognition.onend = function () {
+          listening = false;
+          button.textContent = "🎤 Start Voice Input";
+        };
+      }
+
+      if (!listening) {
+        recognition.start();
+        button.textContent = "🛑 Stop Voice Input";
+        listening = true;
+      } else {
+        recognition.stop();
+        button.textContent = "🎤 Start Voice Input";
+        listening = false;
+      }
+    }
+  </script>
+</body>
+</html>
